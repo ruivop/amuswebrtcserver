@@ -6,8 +6,6 @@ services:
     build:
       context: .
       dockerfile: com.ruivop.webrtc/Dockerfile
-    ports:
-      - "80:80"
 
   nginxswag:
     depends_on:
