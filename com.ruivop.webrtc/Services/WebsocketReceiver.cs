@@ -21,6 +21,7 @@ namespace com.ruivop.webrtc.Services
     {
         public string Id { get; }
         public string Username { get; private set; }
+        public string Color { get; private set; }
         public WebSocket WebSocket { get; }
         public UsersPool UserConnectionPool { get; set; }
 
@@ -77,62 +78,69 @@ namespace com.ruivop.webrtc.Services
 
         private async Task handleIncomingMessage(WebSocketMessage webscketMessage)
         {
-            switch (webscketMessage.MessageType)
+            try
             {
-                case "OfferMessage":
-                    webscketMessage.From = this.Username;
-                    UserConnectionPool.sendToAllOthers(this, webscketMessage);
-                    break;
-                case "TextMessage":
-                    webscketMessage.From = this.Username;
-                    UserConnectionPool.sendToAllOthers(this, webscketMessage);
-                    break;
-                case "UserStatusChangedMessage":
-                    webscketMessage.From = this.Username;
-                    var statusMessage = Utils.JsonElementToObject<UserStatusChangedMessage>(webscketMessage.Message);
-                    statusMessage.Status = UserChangedStatus.online;
-                    HasSound = statusMessage.HasSound;
-                    HasVideo = statusMessage.HasVideo;
-                    webscketMessage.Message = statusMessage;
-                    UserConnectionPool.sendToAllOthers(this, webscketMessage);
-                    break;
-                case "MultimediaConnectionIceCandidateMessage":
-                    webscketMessage.From = this.Username;
-                    var usernameTo2 = Utils.JsonElementToObject<MultimediaConnectionIceCandidateMessage>(webscketMessage.Message).UsernameTo;
-                    await UserConnectionPool.sendToOnlyAsync(usernameTo2, webscketMessage);
-                    break;
-                case "MultimediaConnectionRequestMessage":
-                    webscketMessage.From = this.Username;
-                    var usernameTo = Utils.JsonElementToObject<MultimediaConnectionRequestMessage>(webscketMessage.Message).UsernameTo;
-                    await UserConnectionPool.sendToOnlyAsync(usernameTo, webscketMessage);
-                    break;
-                case "MultimediaConnectionResponseMessage":
-                    webscketMessage.From = this.Username;
-                    string usernameTo1 = Utils.JsonElementToObject<MultimediaConnectionResponseMessage>(webscketMessage.Message).UsernameTo;
-                    await UserConnectionPool.sendToOnlyAsync(usernameTo1, webscketMessage);
-                    break;
-                case "MultimediaOfferMessage":
-                    webscketMessage.From = this.Username;
-                    string usernameT = Utils.JsonElementToObject<MultimediaOfferMessage>(webscketMessage.Message).UsernameTo;
-                    await UserConnectionPool.sendToOnlyAsync(usernameT, webscketMessage);
-                    break;
-                case "IdentificationMessage":
-                    this.Username = Utils.JsonElementToObject<IdentificationMessage>(webscketMessage.Message).Username;
-                    UserConnectionPool.sendToAllOthers(this, new WebSocketMessage
-                    {
-                        From = Username,
-                        MessageType = "UserStatusChangedMessage",
-                        Message = new UserStatusChangedMessage
+                switch (webscketMessage.MessageType)
+                {
+                    case "OfferMessage":
+                        webscketMessage.From = this.Username;
+                        UserConnectionPool.sendToAllOthers(this, webscketMessage);
+                        break;
+                    case "TextMessage":
+                        webscketMessage.From = this.Username;
+                        UserConnectionPool.sendToAllOthers(this, webscketMessage);
+                        break;
+                    case "UserStatusChangedMessage":
+                        webscketMessage.From = this.Username;
+                        var statusMessage = Utils.JsonElementToObject<UserStatusChangedMessage>(webscketMessage.Message);
+                        statusMessage.Status = "online";
+                        Color = statusMessage.Color;
+                        HasSound = statusMessage.HasSound;
+                        HasVideo = statusMessage.HasVideo;
+                        webscketMessage.Message = statusMessage;
+                        UserConnectionPool.sendToAllOthers(this, webscketMessage);
+                        break;
+                    case "MultimediaConnectionIceCandidateMessage":
+                        webscketMessage.From = this.Username;
+                        var usernameTo2 = Utils.JsonElementToObject<MultimediaConnectionIceCandidateMessage>(webscketMessage.Message).UsernameTo;
+                        await UserConnectionPool.sendToOnlyAsync(usernameTo2, webscketMessage);
+                        break;
+                    case "MultimediaConnectionRequestMessage":
+                        webscketMessage.From = this.Username;
+                        var usernameTo = Utils.JsonElementToObject<MultimediaConnectionRequestMessage>(webscketMessage.Message).UsernameTo;
+                        await UserConnectionPool.sendToOnlyAsync(usernameTo, webscketMessage);
+                        break;
+                    case "MultimediaConnectionResponseMessage":
+                        webscketMessage.From = this.Username;
+                        string usernameTo1 = Utils.JsonElementToObject<MultimediaConnectionResponseMessage>(webscketMessage.Message).UsernameTo;
+                        await UserConnectionPool.sendToOnlyAsync(usernameTo1, webscketMessage);
+                        break;
+                    case "IdentificationMessage":
+                        var message = Utils.JsonElementToObject<IdentificationMessage>(webscketMessage.Message);
+                        this.Username = message.Username;
+                        this.Color = message.Color;
+                        HasSound = message.HasSound;
+                        HasVideo = message.HasVideo;
+                        UserConnectionPool.sendToAllOthers(this, new WebSocketMessage
                         {
-                            Status = UserChangedStatus.online,
-                            HasSound = HasSound,
-                            HasVideo = HasVideo
-                        }
-                    });
-
-                    break;
-                default:
-                    break;
+                            From = Username,
+                            MessageType = "UserStatusChangedMessage",
+                            Message = new UserStatusChangedMessage
+                            {
+                                Status = "online",
+                                HasSound = HasSound,
+                                HasVideo = HasVideo
+                            }
+                        });
+                        await UserConnectionPool.SendUserPoolInfoAsync(this);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Erro in handleIncomingMessage: " + e.Message);
             }
         }
 
@@ -163,12 +171,36 @@ namespace com.ruivop.webrtc.Services
                     MessageType = "UserStatusChangedMessage",
                     Message = new UserStatusChangedMessage
                     {
-                        Status = UserChangedStatus.online,
+                        Status = "online",
                         HasSound = connectedUser.HasSound,
                         HasVideo = connectedUser.HasVideo
                     }
                 });
             }
+        }
+
+        public async Task SendUserPoolInfoAsync(ConnectedUser connectedUser)
+        {
+            List<InitialUser> listOfUsers = Users
+                .Where(u => u != connectedUser)
+                .Select(u => new InitialUser
+                {
+                    Username = u.Username,
+                    HasSound = u.HasSound,
+                    HasVideo = u.HasVideo,
+                    Color = u.Color
+                })
+                .ToList();
+
+            await connectedUser.SendMessage(new WebSocketMessage
+            {
+                From = connectedUser.Username,
+                MessageType = "InitialUserPool",
+                Message = new InitialUserPool
+                {
+                    OnlineUsers = listOfUsers
+                }
+            });
         }
 
         public void RemoveUser(ConnectedUser connectedUser)
@@ -183,7 +215,7 @@ namespace com.ruivop.webrtc.Services
                     MessageType = "UserStatusChangedMessage",
                     Message = new UserStatusChangedMessage
                     {
-                        Status = UserChangedStatus.offline,
+                        Status = "offline",
                         HasSound = false,
                         HasVideo = false
                     }
