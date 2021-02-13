@@ -18,7 +18,6 @@ services:
       - PGID=1000
       - TZ=Europe/London
       - URL=ruivop.com
-      - SUBDOMAINS=sierscan,
       - VALIDATION=http
       - EMAIL=ruivascoliveirapaiva@hotmail.com
     ports:
