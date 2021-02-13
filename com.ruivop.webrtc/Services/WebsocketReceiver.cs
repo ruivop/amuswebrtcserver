@@ -128,6 +128,7 @@ namespace com.ruivop.webrtc.Services
                             Message = new UserStatusChangedMessage
                             {
                                 Status = "online",
+                                Color = this.Color,
                                 HasSound = HasSound,
                                 HasVideo = HasVideo
                             }
@@ -172,6 +173,7 @@ namespace com.ruivop.webrtc.Services
                     Message = new UserStatusChangedMessage
                     {
                         Status = "online",
+                        Color = connectedUser.Color,
                         HasSound = connectedUser.HasSound,
                         HasVideo = connectedUser.HasVideo
                     }
